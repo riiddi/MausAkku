@@ -10,7 +10,7 @@
     <RootNamespace>MausAkku</RootNamespace>
     <ApplicationIcon>Icons\app.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>MausAkku – Akkuanzeige für Glorious Model D 2 Wireless</Product>
   </PropertyGroup>
 

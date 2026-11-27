@@ -6,13 +6,15 @@ Kleine Windows-App, die den Akkustand der **Glorious Model D 2 Wireless** als Sy
 
 ## Was die App macht
 
+Das Symbol ist eine hochkant stehende Maus, die sich je nach Akkustand von unten nach oben füllt:
+
 | Zustand | Symbol |
 |---|---|
-| Akku ab 50 % | grüne Balken (5 Balken = 100 %) |
-| Akku 15–49 % | orange Balken |
-| Akku unter 15 % | rote Balken |
-| Maus hängt am USB-Kabel (lädt) | Akku mit Stromstecker |
-| Maus aus / Ruhemodus / Empfänger fehlt | grauer, durchgestrichener Akku |
+| Akku ab 50 % | grüne Füllung |
+| Akku 15–49 % | gelbe Füllung |
+| Akku unter 15 % | rote Füllung |
+| Maus hängt am USB-Kabel (lädt) | Maus mit grünem Stecker |
+| Maus aus / Ruhemodus / Empfänger fehlt | graue, durchgestrichene Maus |
 
 * Mauszeiger auf das Symbol: Tooltip mit Akkustand in %.
 * Linksklick: kurze Statusmeldung.

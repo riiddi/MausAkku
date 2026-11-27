@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace MausAkku;
@@ -97,6 +98,7 @@ internal sealed class TrayApp : ApplicationContext
         _uiTimer.Tick += (_, _) => UpdateUi();
         _uiTimer.Start();
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
         UpdateMenuChecks();
         UpdateUi();
@@ -149,7 +151,7 @@ internal sealed class TrayApp : ApplicationContext
         string text = "Model D 2 Wireless" + Environment.NewLine + status;
         _tray.Text = text.Length > 127 ? text[..127] : text;
 
-        string iconName = IconFileName(icon);
+        string iconName = IconFileName(icon) + "@" + TrayIconSize().Width;
         if (iconName != _currentIconName)
         {
             _currentIconName = iconName;
@@ -214,10 +216,38 @@ internal sealed class TrayApp : ApplicationContext
 
     private static string IconFileName(string key) => $"akku_{(TaskbarIsLight() ? "light" : "dark")}_{key}.ico";
 
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForSystem();
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
+
+    /// <summary>
+    /// Exakte Pixelgröße der Infobereich-Symbole bei der aktuellen Windows-Skalierung
+    /// (100 % = 16 px, 125 % = 20, 150 % = 24, 175 % = 28, 200 % = 32 …).
+    /// </summary>
+    private static Size TrayIconSize()
+    {
+        try
+        {
+            const int SM_CXSMICON = 49;
+            int size = GetSystemMetricsForDpi(SM_CXSMICON, GetDpiForSystem());
+            if (size > 0)
+                return new Size(size, size);
+        }
+        catch
+        {
+            // ältere Windows-Versionen
+        }
+        return SystemInformation.SmallIconSize;
+    }
+
     private Icon LoadIcon(string key)
     {
         string name = IconFileName(key);
-        if (_iconCache.TryGetValue(name, out var cached))
+        var size = TrayIconSize();
+        string cacheKey = $"{name}@{size.Width}";
+        if (_iconCache.TryGetValue(cacheKey, out var cached))
             return cached;
 
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name);
@@ -226,14 +256,21 @@ internal sealed class TrayApp : ApplicationContext
             Log.Write("Symbol fehlt: " + name);
             return SystemIcons.Application;
         }
-        var icon = new Icon(stream, SystemInformation.SmallIconSize);
-        _iconCache[name] = icon;
+        // Lädt genau das passend gezeichnete Bild aus der ICO-Datei – kein unscharfes Skalieren
+        var icon = new Icon(stream, size);
+        _iconCache[cacheKey] = icon;
         return icon;
     }
 
     private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
     {
         // Hell/Dunkel-Wechsel der Taskleiste -> passende Symbolvariante
+        _currentIconName = "";
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        // Skalierung geändert -> Symbol in neuer Pixelgröße laden
         _currentIconName = "";
     }
 
@@ -289,6 +326,7 @@ internal sealed class TrayApp : ApplicationContext
     protected override void ExitThreadCore()
     {
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _uiTimer.Stop();
         _reader.Dispose();
         _tray.Visible = false;

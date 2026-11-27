@@ -21,6 +21,8 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _warnMenu = new("Warnen bei Akkustand");
     private readonly ToolStripMenuItem _pollMenu = new("Abfrage-Intervall");
 
+    private DateTime? _chargeStartUtc;
+    private int? _levelBeforeCharge;
     private bool _warned;
     private bool _criticalWarned;
     private string _currentIconName = "";
@@ -117,10 +119,16 @@ internal sealed class TrayApp : ApplicationContext
 
         if (s.CablePresent)
         {
+            // Die Maus meldet am Kabel keinen Akkustand -> Ladedauer und Wert vor dem Anstecken anzeigen
+            if (_chargeStartUtc == null)
+            {
+                _chargeStartUtc = DateTime.UtcNow;
+                _levelBeforeCharge = s.Battery;
+                Log.Write("Laden begonnen" + (s.Battery is int b0 ? $" (vorher {b0} %)." : "."));
+            }
             icon = "laden";
-            status = fresh && s.Battery is int charging
-                ? $"Am Kabel – lädt ({charging} %)"
-                : "Am Kabel – lädt";
+            status = $"Lädt seit {Duration(DateTime.UtcNow - _chargeStartUtc.Value)}"
+                     + (_levelBeforeCharge is int before ? $" (vorher {before} %)" : "");
             _warned = _criticalWarned = false;
         }
         else if (!s.ReceiverPresent)
@@ -143,6 +151,13 @@ internal sealed class TrayApp : ApplicationContext
                 status = "Warte auf Antwort der Maus …";
             else
                 status = "Maus aus oder keine Antwort";
+        }
+
+        if (!s.CablePresent && _chargeStartUtc != null)
+        {
+            Log.Write($"Laden beendet nach {Duration(DateTime.UtcNow - _chargeStartUtc.Value)}.");
+            _chargeStartUtc = null;
+            _levelBeforeCharge = null;
         }
 
         _currentStatus = status;
@@ -188,6 +203,13 @@ internal sealed class TrayApp : ApplicationContext
     {
         int step = Math.Clamp(level / 5 * 5, 0, 100);   // abrunden auf 5er-Schritte
         return step.ToString("000");
+    }
+
+    private static string Duration(TimeSpan span)
+    {
+        if (span.TotalMinutes < 1) return "unter 1 min";
+        if (span.TotalHours < 1) return $"{(int)span.TotalMinutes} min";
+        return $"{(int)span.TotalHours} h {span.Minutes:00} min";
     }
 
     private static string Ago(DateTime utc)
